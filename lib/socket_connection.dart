@@ -13,10 +13,10 @@ class SocketClient {
     SocketConnection connection = SocketConnection(server, port);
     StreamController<SocketConnection> controller;
     controller = new StreamController<SocketConnection>(onListen: () async {
-      await connection.initialize();
+      await connection._initialize();
       controller.add(connection);
     }, onCancel: () async {
-      await connection.close();
+      await connection._close();
     });
     return controller.stream;
   }
@@ -31,7 +31,7 @@ class SocketConnection {
   List<int> buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
-  Future<void> initialize() async {
+  Future<void> _initialize() async {
     socket = await Socket.connect(server, port);
 
     var completer = Completer<void>();
@@ -53,7 +53,7 @@ class SocketConnection {
     return data.run(this);
   }
 
-  Future<void> close() async {
+  Future<void> _close() async {
     return socket.close();
   }
 }
