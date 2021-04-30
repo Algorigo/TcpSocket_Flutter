@@ -9,12 +9,17 @@ class SocketClient {
   final String server;
   final int port;
 
-  Stream<SocketConnection> connect() {
+  Stream<SocketConnection> connect({Duration duration = null}) {
     SocketConnection connection = SocketConnection(server, port);
     StreamController<SocketConnection> controller;
     controller = new StreamController<SocketConnection>(onListen: () async {
-      await connection._initialize();
-      controller.add(connection);
+      try {
+        await connection._initialize(duration ?? Duration(seconds: 5));
+        controller.add(connection);
+      } catch (e) {
+        print("initialized error:$e");
+        controller.addError(e);
+      }
     }, onCancel: () async {
       await connection._close();
     });
@@ -31,8 +36,8 @@ class SocketConnection {
   List<int> buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
-  Future<void> _initialize() async {
-    socket = await Socket.connect(server, port);
+  Future<void> _initialize(Duration duration) async {
+    socket = await Socket.connect(server, port, timeout: duration);
 
     var completer = Completer<void>();
     // listen to the received data event stream
@@ -42,6 +47,7 @@ class SocketConnection {
       buffer.addAll(event);
       subject.add(List.from(buffer));
     }, onError: (error) {
+      print("socket listen onError:$error");
       completer.completeError(error);
     }, cancelOnError: true);
 
@@ -49,42 +55,49 @@ class SocketConnection {
     return await completer.future;
   }
 
-  Stream<T> run<T>(Data<T> data) {
+  Stream run(Data data) {
     return data.run(this);
   }
 
   Future<void> _close() async {
-    return socket.close();
+    try {
+      return socket.close();
+    } catch (e) {
+      print("socket close error:$e");
+    }
   }
 }
 
-abstract class Data<T> {
-  Stream<T> run(SocketConnection connection);
+abstract class Data {
+  Stream<dynamic> run(SocketConnection connection);
 }
 
-class SendData implements Data<void> {
+class SendData implements Data {
   SendData(this.data);
 
   final List<int> data;
 
   @override
-  Stream<void> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     StreamController controller = StreamController();
     connection.socket.addStream(Stream.value(data)).then(
-        (value) => controller.done,
+        (value) {
+          controller.add(null);
+          controller.done;
+        },
         onError: (error) => controller.addError(error));
     return controller.stream;
   }
 }
 
-class ReceiveData<T> implements Data<T> {
+class ReceiveData implements Data {
   ReceiveData(this.dataValidator, this.mapper);
 
   final Function dataValidator;
   final Function mapper;
 
   @override
-  Stream<T> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     return connection.subject
         .firstWhere((value) => dataValidator(value))
         .then((value) {
@@ -94,17 +107,17 @@ class ReceiveData<T> implements Data<T> {
   }
 }
 
-class HandshakeData<T> implements Data<T> {
+class HandshakeData implements Data {
   HandshakeData(this.sendData, this.receiveData);
 
   HandshakeData.data(List<int> data, Function dataValidator, Function mapper)
       : this(SendData(data), ReceiveData(dataValidator, mapper));
 
   final SendData sendData;
-  final ReceiveData<T> receiveData;
+  final ReceiveData receiveData;
 
   @override
-  Stream<T> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     return sendData.run(connection).andThen(receiveData.run(connection));
   }
 }
