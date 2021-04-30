@@ -13,10 +13,10 @@ class SocketClient {
     SocketConnection connection = SocketConnection(server, port);
     StreamController<SocketConnection> controller;
     controller = new StreamController<SocketConnection>(onListen: () async {
-      await connection.initialize();
+      await connection._initialize();
       controller.add(connection);
     }, onCancel: () async {
-      await connection.close();
+      await connection._close();
     });
     return controller.stream;
   }
@@ -31,7 +31,7 @@ class SocketConnection {
   List<int> buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
-  Future<void> initialize() async {
+  Future<void> _initialize() async {
     socket = await Socket.connect(server, port);
 
     var completer = Completer<void>();
@@ -49,17 +49,17 @@ class SocketConnection {
     return await completer.future;
   }
 
-  Future<T> run<T>(Data<T> data) async {
+  Stream<T> run<T>(Data<T> data) {
     return data.run(this);
   }
 
-  Future<void> close() async {
+  Future<void> _close() async {
     return socket.close();
   }
 }
 
 abstract class Data<T> {
-  Future<T> run(SocketConnection connection);
+  Stream<T> run(SocketConnection connection);
 }
 
 class SendData implements Data<void> {
@@ -68,8 +68,12 @@ class SendData implements Data<void> {
   final List<int> data;
 
   @override
-  Future<void> run(SocketConnection connection) async {
-    return connection.socket.addStream(Stream.value(data));
+  Stream<void> run(SocketConnection connection) {
+    StreamController controller = StreamController();
+    connection.socket.addStream(Stream.value(data)).then(
+        (value) => controller.done,
+        onError: (error) => controller.addError(error));
+    return controller.stream;
   }
 }
 
@@ -80,13 +84,13 @@ class ReceiveData<T> implements Data<T> {
   final Function mapper;
 
   @override
-  Future<T> run(SocketConnection connection) async {
+  Stream<T> run(SocketConnection connection) {
     return connection.subject
         .firstWhere((value) => dataValidator(value))
         .then((value) {
       connection.buffer.clear();
       return mapper(value);
-    });
+    }).asStream();
   }
 }
 
@@ -100,8 +104,26 @@ class HandshakeData<T> implements Data<T> {
   final ReceiveData<T> receiveData;
 
   @override
-  Future<T> run(SocketConnection connection) async {
-    await sendData.run(connection);
-    return receiveData.run(connection);
+  Stream<T> run(SocketConnection connection) {
+    return sendData.run(connection).andThen(receiveData.run(connection));
+  }
+}
+
+extension _Completable<T> on Stream<T> {
+  Stream<V> andThen<V>(Stream<V> stream) {
+    var streamController = StreamController<V>();
+    StreamSubscription subscription;
+    return streamController.stream
+    .doOnListen(() {
+      subscription = stream.listen((event) {
+        streamController.add(event);
+      }, onError: (error) {
+        streamController.addError(error);
+      }, onDone: () {
+        streamController.close();
+      });
+    }).doOnCancel(() {
+      subscription.cancel();
+    });
   }
 }
