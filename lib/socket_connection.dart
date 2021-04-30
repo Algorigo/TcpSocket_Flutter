@@ -49,7 +49,7 @@ class SocketConnection {
     return await completer.future;
   }
 
-  Stream<T> run<T>(Data<T> data) {
+  Stream run(Data data) {
     return data.run(this);
   }
 
@@ -58,33 +58,36 @@ class SocketConnection {
   }
 }
 
-abstract class Data<T> {
-  Stream<T> run(SocketConnection connection);
+abstract class Data {
+  Stream<dynamic> run(SocketConnection connection);
 }
 
-class SendData implements Data<void> {
+class SendData implements Data {
   SendData(this.data);
 
   final List<int> data;
 
   @override
-  Stream<void> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     StreamController controller = StreamController();
     connection.socket.addStream(Stream.value(data)).then(
-        (value) => controller.done,
+        (value) {
+          controller.add(null);
+          controller.done;
+        },
         onError: (error) => controller.addError(error));
     return controller.stream;
   }
 }
 
-class ReceiveData<T> implements Data<T> {
+class ReceiveData implements Data {
   ReceiveData(this.dataValidator, this.mapper);
 
   final Function dataValidator;
   final Function mapper;
 
   @override
-  Stream<T> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     return connection.subject
         .firstWhere((value) => dataValidator(value))
         .then((value) {
@@ -94,17 +97,17 @@ class ReceiveData<T> implements Data<T> {
   }
 }
 
-class HandshakeData<T> implements Data<T> {
+class HandshakeData implements Data {
   HandshakeData(this.sendData, this.receiveData);
 
   HandshakeData.data(List<int> data, Function dataValidator, Function mapper)
       : this(SendData(data), ReceiveData(dataValidator, mapper));
 
   final SendData sendData;
-  final ReceiveData<T> receiveData;
+  final ReceiveData receiveData;
 
   @override
-  Stream<T> run(SocketConnection connection) {
+  Stream<dynamic> run(SocketConnection connection) {
     return sendData.run(connection).andThen(receiveData.run(connection));
   }
 }
