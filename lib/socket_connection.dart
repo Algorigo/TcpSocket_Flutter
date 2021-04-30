@@ -47,6 +47,7 @@ class SocketConnection {
       buffer.addAll(event);
       subject.add(List.from(buffer));
     }, onError: (error) {
+      print("socket listen onError:$error");
       completer.completeError(error);
     }, cancelOnError: true);
 
@@ -59,7 +60,11 @@ class SocketConnection {
   }
 
   Future<void> _close() async {
-    return socket.close();
+    try {
+      return socket.close();
+    } catch (e) {
+      print("socket close error:$e");
+    }
   }
 }
 
