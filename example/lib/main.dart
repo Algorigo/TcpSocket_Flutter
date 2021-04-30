@@ -34,7 +34,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   bool get _connected {
-    return _subscription != null;
+    return _socketConnection != null;
+  }
+
+  bool get _connecting {
+    return _subscription != null && _socketConnection == null;
   }
 
   String get _connectTitle {
@@ -91,29 +95,38 @@ class _MyAppState extends State<MyApp> {
       if (server.isNotEmpty) {
         SocketClient socketClient = SocketClient(server, _port);
         _subscription = socketClient.connect().doOnCancel(() {
-          _subscription = null;
-          _socketConnection = null;
+          setState(() {
+            _subscription = null;
+            _socketConnection = null;
+          });
         }).listen((connection) async {
           print("listen:$connection");
-          _socketConnection = connection;
+          setState(() {
+            _socketConnection = connection;
+          });
           var sp = await SharedPreferences.getInstance();
           sp.setString(KEY_SERVER, server);
           sp.setInt(KEY_PORT, _port);
         }, onError: (error) {
-          _subscription = null;
-          _socketConnection = null;
+          _result = "Connect Error:$error";
+          setState(() {
+            _subscription = null;
+            _socketConnection = null;
+          });
         }, cancelOnError: true);
-        setState(() {});
       }
+      setState(() {});
     }
   }
 
   Future<void> send() async {
-    _socketConnection?.run(HandshakeData.data(
-        utf8.encode(_send), (list) => list.length > 0, (received) {
+    _socketConnection
+        ?.run(HandshakeData.data(utf8.encode(_send), (list) => list.length > 0,
+            (received) {
       print("received:$received");
       return utf8.decode(received);
-    })).doOnListen(() {
+    }))
+        .doOnListen(() {
       setState(() {
         _receive += "\n";
       });
@@ -153,7 +166,10 @@ class _MyAppState extends State<MyApp> {
                 decoration: InputDecoration(hintText: 'Port'),
                 enabled: !_connected,
               ),
-              ElevatedButton(onPressed: connect, child: Text(_connectTitle)),
+              ElevatedButton(
+                onPressed: _connecting ? null : connect,
+                child: Text(_connectTitle),
+              ),
               TextField(
                 keyboardType: TextInputType.text,
                 decoration: InputDecoration(hintText: 'Send Data'),
