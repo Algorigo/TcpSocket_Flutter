@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'tcpsocket_plugin'
-  s.version          = '0.0.1'
+  s.version          = '1.0.0'
   s.summary          = 'Tcp Socket Client Flutter plugin.'
   s.description      = <<-DESC
 Tcp Socket Client Flutter plugin.
