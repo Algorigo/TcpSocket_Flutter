@@ -109,15 +109,28 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> send() async {
-    var result = await _socketConnection?.run(HandshakeData.data(
+    _socketConnection?.run(HandshakeData.data(
         utf8.encode(_send), (list) => list.length > 0, (received) {
       print("received:$received");
       return utf8.decode(received);
-    }));
-    print("result:$result");
-    setState(() {
-      _receive += (result ?? "null");
-    });
+    })).doOnListen(() {
+      setState(() {
+        _receive += "\n";
+      });
+    }).listen((result) {
+      print("result:$result");
+      setState(() {
+        _receive += (result ?? "null");
+      });
+    }, onError: (error) {
+      print("error:$error");
+      setState(() {
+        _receive = "onError:$error";
+      });
+    }, onDone: () {
+      print("onDone");
+      _receive += ":onDone";
+    }, cancelOnError: true);
   }
 
   @override
