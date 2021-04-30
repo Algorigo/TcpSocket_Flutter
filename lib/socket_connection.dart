@@ -9,12 +9,17 @@ class SocketClient {
   final String server;
   final int port;
 
-  Stream<SocketConnection> connect() {
+  Stream<SocketConnection> connect({Duration duration = null}) {
     SocketConnection connection = SocketConnection(server, port);
     StreamController<SocketConnection> controller;
     controller = new StreamController<SocketConnection>(onListen: () async {
-      await connection._initialize();
-      controller.add(connection);
+      try {
+        await connection._initialize(duration ?? Duration(seconds: 5));
+        controller.add(connection);
+      } catch (e) {
+        print("initialized error:$e");
+        controller.addError(e);
+      }
     }, onCancel: () async {
       await connection._close();
     });
@@ -31,8 +36,8 @@ class SocketConnection {
   List<int> buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
-  Future<void> _initialize() async {
-    socket = await Socket.connect(server, port);
+  Future<void> _initialize(Duration duration) async {
+    socket = await Socket.connect(server, port, timeout: duration);
 
     var completer = Completer<void>();
     // listen to the received data event stream
