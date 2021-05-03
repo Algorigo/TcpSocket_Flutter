@@ -21,6 +21,7 @@ class SocketClient {
         controller.addError(e);
       }
     }, onCancel: () async {
+      print("SocketClient onCancel");
       await connection._close();
     });
     return controller.stream;
@@ -33,7 +34,7 @@ class SocketConnection {
   final String server;
   final int port;
   Socket socket;
-  List<int> buffer = [];
+  List<int> _buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
   Future<void> _initialize(Duration duration) async {
@@ -44,8 +45,8 @@ class SocketConnection {
     socket.doOnListen(() {
       completer.complete();
     }).listen((List<int> event) {
-      buffer.addAll(event);
-      subject.add(List.from(buffer));
+      _buffer.addAll(event);
+      subject.add(List.from(_buffer));
     }, onError: (error) {
       print("socket listen onError:$error");
       completer.completeError(error);
@@ -55,7 +56,12 @@ class SocketConnection {
     return await completer.future;
   }
 
-  Stream run(Data data) {
+  void clearBuffer() {
+    _buffer.clear();
+    subject.add(List.from(_buffer));
+  }
+
+  Stream<T> run<T>(Data<T> data) {
     return data.run(this);
   }
 
@@ -68,57 +74,68 @@ class SocketConnection {
   }
 }
 
-abstract class Data {
-  Stream<dynamic> run(SocketConnection connection);
+abstract class Data<T> {
+  Stream<T> run(SocketConnection connection);
 }
 
-class SendData implements Data {
+class SendData implements Data<void> {
   SendData(this.data);
 
   final List<int> data;
 
   @override
-  Stream<dynamic> run(SocketConnection connection) {
+  Stream<void> run(SocketConnection connection) {
     StreamController controller = StreamController();
-    connection.socket.addStream(Stream.value(data)).then(
-        (value) {
-          controller.add(null);
-          controller.done;
-        },
-        onError: (error) => controller.addError(error));
-    return controller.stream;
+    return controller.stream.doOnListen(() {
+      connection.socket.addStream(Stream.value(data)).then((value) {
+        controller.close();
+      }, onError: (error) => controller.addError(error));
+    });
   }
 }
 
-class ReceiveData implements Data {
+class ReceiveData<T> implements Data<T> {
   ReceiveData(this.dataValidator, this.mapper);
 
-  final Function dataValidator;
-  final Function mapper;
+  final bool Function(List<int>) dataValidator;
+  final T Function(List<int>) mapper;
 
   @override
-  Stream<dynamic> run(SocketConnection connection) {
-    return connection.subject
-        .firstWhere((value) => dataValidator(value))
-        .then((value) {
-      connection.buffer.clear();
-      return mapper(value);
-    }).asStream();
+  Stream<T> run(SocketConnection connection) {
+    StreamController<T> controller = StreamController<T>();
+    return controller.stream
+      .doOnListen(() {
+      connection.subject
+          .firstWhere((value) => dataValidator(value))
+          .then((value) {
+        connection.clearBuffer();
+        return mapper(value);
+      }).then((value) {
+        controller.add(value);
+        controller.close();
+      }, onError: (error) {
+        controller.addError(error);
+      });
+    });
   }
 }
 
-class HandshakeData implements Data {
+class HandshakeData<T> implements Data<T> {
   HandshakeData(this.sendData, this.receiveData);
 
-  HandshakeData.data(List<int> data, Function dataValidator, Function mapper)
+  HandshakeData.data(List<int> data, bool Function(List<int>) dataValidator,
+      T Function(List<int>) mapper)
       : this(SendData(data), ReceiveData(dataValidator, mapper));
 
   final SendData sendData;
-  final ReceiveData receiveData;
+  final ReceiveData<T> receiveData;
 
   @override
-  Stream<dynamic> run(SocketConnection connection) {
-    return sendData.run(connection).andThen(receiveData.run(connection));
+  Stream<T> run(SocketConnection connection) {
+    return sendData
+        .run(connection)
+        .andThen(receiveData
+            .run(connection));
   }
 }
 
@@ -126,17 +143,20 @@ extension _Completable<T> on Stream<T> {
   Stream<V> andThen<V>(Stream<V> stream) {
     var streamController = StreamController<V>();
     StreamSubscription subscription;
-    return streamController.stream
-    .doOnListen(() {
-      subscription = stream.listen((event) {
-        streamController.add(event);
-      }, onError: (error) {
+    return streamController.stream.doOnListen(() {
+      subscription = listen((event) {}, onError: (error) {
         streamController.addError(error);
       }, onDone: () {
-        streamController.close();
-      });
+        subscription = stream.listen((event) {
+          streamController.add(event);
+        }, onError: (error) {
+          streamController.addError(error);
+        }, onDone: () {
+          streamController.close();
+        }, cancelOnError: true);
+      }, cancelOnError: true);
     }).doOnCancel(() {
-      subscription.cancel();
+      subscription?.cancel();
     });
   }
 }
