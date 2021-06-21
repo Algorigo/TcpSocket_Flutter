@@ -20,8 +20,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  static final String KEY_SERVER = "KEY_SERVER";
-  static final String KEY_PORT = "KEY_PORT";
+  static final String keyServer = "KEY_SERVER";
+  static final String keyPort = "KEY_PORT";
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -47,8 +47,8 @@ class _MyAppState extends State<MyApp> {
 
   String _send = "";
   String _receive = "";
-  StreamSubscription _subscription;
-  SocketConnection _socketConnection;
+  StreamSubscription? _subscription;
+  SocketConnection? _socketConnection;
   String _result = "";
 
   @override
@@ -57,8 +57,8 @@ class _MyAppState extends State<MyApp> {
     initPlatformState();
     SharedPreferences.getInstance().then((sp) {
       setState(() {
-        _serverController.text = sp.getString(KEY_SERVER);
-        _portController.text = sp.getInt(KEY_PORT)?.toString() ?? -1;
+        _serverController.text = sp.getString(keyServer) ?? "";
+        _portController.text = sp.getInt(keyPort)?.toString() ?? "-1";
       });
     });
   }
@@ -86,7 +86,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> connect() async {
     if (_connected) {
       print("disconnect");
-      _subscription.cancel();
+      _subscription?.cancel();
       setState(() {
         _subscription = null;
       });
@@ -105,8 +105,8 @@ class _MyAppState extends State<MyApp> {
             _socketConnection = connection;
           });
           var sp = await SharedPreferences.getInstance();
-          sp.setString(KEY_SERVER, server);
-          sp.setInt(KEY_PORT, _port);
+          sp.setString(keyServer, server);
+          sp.setInt(keyPort, _port);
         }, onError: (error) {
           _result = "Connect Error:$error";
           setState(() {

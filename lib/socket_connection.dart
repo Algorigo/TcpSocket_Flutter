@@ -9,31 +9,33 @@ class SocketClient {
   final String server;
   final int port;
 
-  Stream<SocketConnection> connect({Duration duration = null}) {
+  Stream<SocketConnection> connect({Duration? duration}) {
     SocketConnection connection = SocketConnection(server, port);
-    StreamController<SocketConnection> controller;
+    StreamController<SocketConnection>? controller;
     controller = new StreamController<SocketConnection>(onListen: () async {
       try {
         await connection._initialize(duration ?? Duration(seconds: 5));
-        controller.add(connection);
+        controller?.add(connection);
       } catch (e) {
         print("initialized error:$e");
-        controller.addError(e);
+        controller?.addError(e);
       }
     }, onCancel: () async {
       print("SocketClient onCancel");
       await connection._close();
     });
-    return controller.stream;
+    return controller.stream.doOnCancel(() {
+      controller?.close();
+    });
   }
 }
 
 class SocketConnection {
-  SocketConnection(this.server, this.port) {}
+  SocketConnection(this.server, this.port);
 
   final String server;
   final int port;
-  Socket socket;
+  late Socket socket;
   List<int> _buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
@@ -142,7 +144,7 @@ class HandshakeData<T> implements Data<T> {
 extension _Completable<T> on Stream<T> {
   Stream<V> andThen<V>(Stream<V> stream) {
     var streamController = StreamController<V>();
-    StreamSubscription subscription;
+    StreamSubscription? subscription;
     return streamController.stream.doOnListen(() {
       subscription = listen((event) {}, onError: (error) {
         streamController.addError(error);
