@@ -1,50 +1,23 @@
-import 'dart:async';
-import 'dart:io';
 
-import 'package:rxdart/rxdart.dart';
-
-class SocketClient {
-  SocketClient(this.server, this.port);
-
-  final String server;
-  final int port;
-
-  Stream<SocketConnection> connect({Duration? duration}) {
-    SocketConnection connection = SocketConnection(server, port);
-    StreamController<SocketConnection>? controller;
-    controller = new StreamController<SocketConnection>(onListen: () async {
-      try {
-        await connection._initialize(duration ?? Duration(seconds: 5));
-        controller?.add(connection);
-      } catch (e) {
-        print("initialized error:$e");
-        controller?.addError(e);
-      }
-    }, onCancel: () async {
-      print("SocketClient onCancel");
-      await connection._close();
-    });
-    return controller.stream.doOnCancel(() {
-      controller?.close();
-    });
-  }
-}
+part of 'tcpsocket_plugin.dart';
 
 class SocketConnection {
   SocketConnection(this.server, this.port);
 
   final String server;
   final int port;
-  late Socket socket;
+  late SocketWrapper socket;
   List<int> _buffer = [];
   var subject = BehaviorSubject<List<int>>();
 
   Future<void> _initialize(Duration duration) async {
-    socket = await Socket.connect(server, port, timeout: duration);
-
+    socket = SocketWrapper.init();
     var completer = Completer<void>();
+
+    final stream = await socket.connect(server, port, timeout: duration);
+
     // listen to the received data event stream
-    socket.doOnListen(() {
+    stream.doOnListen(() {
       completer.complete();
     }).listen((List<int> event) {
       _buffer.addAll(event);

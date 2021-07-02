@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:tcpsocket_plugin/socket_connection.dart';
 import 'package:tcpsocket_plugin/tcpsocket_plugin.dart';
 
 void main() {
