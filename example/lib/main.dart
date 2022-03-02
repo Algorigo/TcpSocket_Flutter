@@ -30,7 +30,7 @@ class _MyAppState extends State<MyApp> {
   final _portController = TextEditingController();
 
   int get _port {
-    return int.parse(_portController.text) ?? -1;
+    return int.parse(_portController.text);
   }
 
   bool get _connected {
@@ -133,7 +133,7 @@ class _MyAppState extends State<MyApp> {
     }).listen((result) {
       print("result:$result");
       setState(() {
-        _receive += (result ?? "null");
+        _receive += result;
       });
     }, onError: (error) {
       print("error:$error");
