@@ -1,28 +1,29 @@
 PODS:
   - Flutter (1.0.0)
-  - shared_preferences (0.0.1):
+  - shared_preferences_foundation (0.0.1):
     - Flutter
-  - tcpsocket_plugin (2.0.0):
+    - FlutterMacOS
+  - tcpsocket_plugin (2.1.0):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - shared_preferences (from `.symlinks/plugins/shared_preferences/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - tcpsocket_plugin (from `.symlinks/plugins/tcpsocket_plugin/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  shared_preferences:
-    :path: ".symlinks/plugins/shared_preferences/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   tcpsocket_plugin:
     :path: ".symlinks/plugins/tcpsocket_plugin/ios"
 
 SPEC CHECKSUMS:
-  Flutter: 434fef37c0980e73bb6479ef766c45957d4b510c
-  shared_preferences: af6bfa751691cdc24be3045c43ec037377ada40d
-  tcpsocket_plugin: 87e7d737d0b1827fbb546d8315f839c1a3eb97df
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  tcpsocket_plugin: ac8ce816d850ef0ee92c103c25c091b7a3cd7d8c
 
-PODFILE CHECKSUM: aafe91acc616949ddb318b77800a7f51bffa2a4c
+PODFILE CHECKSUM: 0dbd5a87e0ace00c9610d2037ac22083a01f861d
 
-COCOAPODS: 1.10.1
+COCOAPODS: 1.16.2
