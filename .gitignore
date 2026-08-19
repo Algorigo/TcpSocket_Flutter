@@ -29,3 +29,9 @@ migrate_working_dir/
 build/
 .idea/
 /coverage/
+
+# Android related
+**/android/local.properties
+**/android/app/
+**/android/.gradle/
+
